@@ -1,15 +1,21 @@
 """
 Crawler implementation.
 """
+import datetime
+import json
 import os
+
 # pylint: disable=too-many-arguments, too-many-instance-attributes, unused-import, undefined-variable, unused-argument
 import pathlib
+import re
 from typing import Pattern, Union
+
+import requests
+from bs4 import BeautifulSoup
+
+from core_utils.article.article import Article
 from core_utils.config_dto import ConfigDTO
 from core_utils.constants import ASSETS_PATH, CRAWLER_CONFIG_PATH
-import requests
-# from bs4 import BeautifulSoup
-# import datetime
 
 
 class IncorrectSeedURLError(Exception):
@@ -55,7 +61,8 @@ class Config:
         if not isinstance(path_to_config, pathlib.Path):
             raise TypeError
         self.path_to_config = path_to_config
-        self._extract_config_content()
+        self.config = self._extract_config_content()
+        self._validate_config_content()
 
     def _extract_config_content(self) -> ConfigDTO:
         """
@@ -64,38 +71,34 @@ class Config:
         Returns:
             ConfigDTO: Config values
         """
-        with open(self.path_to_config, 'r', encoding='utf-8') as config_file:
-            config_dict = config_file.read()
-            if not isinstance(config_dict, dict):
-                raise TypeError("inappropriate type of input arguments")
-        config = ConfigDTO(config_dict['seed_urls'],
-                           config_dict['total_articles_to_find_and_parse'],
-                           config_dict['headers'],
-                           config_dict['encoding'],
-                           config_dict['timeout'],
-                           config_dict['should_verify_certificate'],
-                           config_dict['headless_mode'])
+        with open(self.path_to_config, encoding='utf-8') as config_file:
+            config_file = json.load(config_file)
+        config = ConfigDTO(**config_file)
         return config
 
     def _validate_config_content(self) -> None:
         """
         Ensure configuration parameters are not corrupt.
         """
-        config = self._extract_config_content()
-        if not all(isinstance(url, str) for url in config.seed_urls) or ...:
+        if (not isinstance(self.config.seed_urls, list)
+                or not all(isinstance(url, str) for url in self.config.seed_urls)
+                or not all(re.compile("https?://(www.)?").match(url)
+                           for url in self.config.seed_urls)):
             raise IncorrectSeedURLError
-            # тут будет регулярка в if, когда разберусь что это и с чем это едят
-        if config.total_articles not in range(1, 151):
+        if self.config.total_articles not in range(0, 151):
             raise NumberOfArticlesOutOfRangeError
-        if not isinstance(config.total_articles, int) or config.total_articles < 0:
+        if not isinstance(self.config.total_articles, int) or self.config.total_articles < 0:
             raise IncorrectNumberOfArticlesError
-        if not isinstance(config.headers, dict):
+        if not isinstance(self.config.headers, dict):
             raise IncorrectHeadersError
-        if not isinstance(config.encoding, str):
+        if not isinstance(self.config.encoding, str):
             raise IncorrectEncodingError
-        if not isinstance(config.timeout, int) or config.timeout <= 0 or config.timeout >= 60:
+        if (not isinstance(self.config.timeout, int)
+                or self.config.timeout < 0
+                or self.config.timeout > 60):
             raise IncorrectTimeoutError
-        if not isinstance(config.should_verify_certificate, bool):
+        if (not isinstance(self.config.should_verify_certificate, bool)
+                or not isinstance(self.config.headless_mode, bool)):
             raise IncorrectVerifyError
 
     def get_seed_urls(self) -> list[str]:
@@ -317,4 +320,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-# Hello, dear mentor!
