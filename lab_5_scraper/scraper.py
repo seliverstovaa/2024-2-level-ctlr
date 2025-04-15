@@ -260,7 +260,6 @@ class Crawler:
         """
         Find articles.
         """
-        prepare_environment(ASSETS_PATH)
         for url in self.get_search_urls():
             try:
                 response = make_request(url, self.config)
