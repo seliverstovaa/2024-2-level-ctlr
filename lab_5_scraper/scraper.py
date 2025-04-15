@@ -1,13 +1,13 @@
 """
 Crawler implementation.
 """
-import datetime
-import json
-import os
 
 # pylint: disable=too-many-arguments, too-many-instance-attributes, unused-import, undefined-variable, unused-argument
+import datetime
+import json
+import shutil
+
 import pathlib
-import re
 from typing import Pattern, Union
 
 import requests
@@ -19,31 +19,45 @@ from core_utils.constants import ASSETS_PATH, CRAWLER_CONFIG_PATH
 
 
 class IncorrectSeedURLError(Exception):
-    pass
+    """
+    Raised when seed URL does not match standard pattern "https?://(www.)?".
+    """
 
 
 class NumberOfArticlesOutOfRangeError(Exception):
-    pass
+    """
+    Raised when total number of articles is out of range from 1 to 150.
+    """
 
 
 class IncorrectNumberOfArticlesError(Exception):
-    pass
+    """
+    Raised when total number of articles to parse is not integer or less than 0.
+    """
 
 
 class IncorrectHeadersError(Exception):
-    pass
+    """
+    Raised when headers are not in a form of dictionary.
+    """
 
 
 class IncorrectEncodingError(Exception):
-    pass
+    """
+    Raised when encoding must be specified as a string.
+    """
 
 
 class IncorrectTimeoutError(Exception):
-    pass
+    """
+    Raised when timeout value must be a positive integer less than 60.
+    """
 
 
 class IncorrectVerifyError(Exception):
-    pass
+    """
+    Raised when verify certificate value must either be True or False.
+    """
 
 
 class Config:
@@ -59,9 +73,15 @@ class Config:
             path_to_config (pathlib.Path): Path to configuration.
         """
         if not isinstance(path_to_config, pathlib.Path):
-            raise TypeError
+            raise TypeError('Inappropriate type of path_to_config')
         self.path_to_config = path_to_config
         self.config = self._extract_config_content()
+        self._seed_urls = self.get_seed_urls()
+        self._num_articles = self.get_num_articles()
+        self._headers = self.get_headers()
+        self._encoding = self.get_encoding()
+        self._timeout = self.get_timeout()
+        self._should_verify_certificate = self.get_verify_certificate()
         self._validate_config_content()
 
     def _extract_config_content(self) -> ConfigDTO:
@@ -73,6 +93,8 @@ class Config:
         """
         with open(self.path_to_config, encoding='utf-8') as config_file:
             config_file = json.load(config_file)
+        if not isinstance(config_file, dict):
+            raise TypeError('Inappropriate type of config_file')
         config = ConfigDTO(**config_file)
         return config
 
@@ -80,26 +102,27 @@ class Config:
         """
         Ensure configuration parameters are not corrupt.
         """
-        if (not isinstance(self.config.seed_urls, list)
-                or not all(isinstance(url, str) for url in self.config.seed_urls)
-                or not all(re.compile("https?://(www.)?").match(url)
-                           for url in self.config.seed_urls)):
-            raise IncorrectSeedURLError
-        if self.config.total_articles not in range(0, 151):
-            raise NumberOfArticlesOutOfRangeError
-        if not isinstance(self.config.total_articles, int) or self.config.total_articles < 0:
-            raise IncorrectNumberOfArticlesError
+        if (not isinstance(self._seed_urls, list)
+                or not all(isinstance(url, str) for url in self._seed_urls)):
+            raise TypeError('Inappropriate type of seed urls')
+        if not all(url.startswith("https://mel.fm") for url in self.config.seed_urls):
+            raise IncorrectSeedURLError('Seed URL does not match standard pattern "https?://(www.)?"')
+        if (not isinstance(self._num_articles, int) or isinstance(self._num_articles, bool)
+                or self._num_articles < 0):
+            raise IncorrectNumberOfArticlesError('Total number of articles to parse is not integer or less than 0')
+        if self._num_articles > 150:
+            raise NumberOfArticlesOutOfRangeError('Total number of articles is out of range from 1 to 150')
         if not isinstance(self.config.headers, dict):
-            raise IncorrectHeadersError
+            raise IncorrectHeadersError('Headers are not in a form of dictionary')
         if not isinstance(self.config.encoding, str):
-            raise IncorrectEncodingError
+            raise IncorrectEncodingError('Encoding must be specified as a string')
         if (not isinstance(self.config.timeout, int)
                 or self.config.timeout < 0
                 or self.config.timeout > 60):
-            raise IncorrectTimeoutError
+            raise IncorrectTimeoutError('Timeout value must be a positive integer less than 60')
         if (not isinstance(self.config.should_verify_certificate, bool)
                 or not isinstance(self.config.headless_mode, bool)):
-            raise IncorrectVerifyError
+            raise IncorrectVerifyError('Verify certificate value must either be True or False')
 
     def get_seed_urls(self) -> list[str]:
         """
@@ -108,7 +131,7 @@ class Config:
         Returns:
             list[str]: Seed urls
         """
-        seed_urls = self._extract_config_content().seed_urls
+        seed_urls = self.config.seed_urls
         return seed_urls
 
     def get_num_articles(self) -> int:
@@ -118,7 +141,7 @@ class Config:
         Returns:
             int: Total number of articles to scrape
         """
-        num_articles = self._extract_config_content().total_articles
+        num_articles = self.config.total_articles
         return num_articles
 
     def get_headers(self) -> dict[str, str]:
@@ -128,7 +151,7 @@ class Config:
         Returns:
             dict[str, str]: Headers
         """
-        headers = self._extract_config_content().headers
+        headers = self.config.headers
         return headers
 
     def get_encoding(self) -> str:
@@ -138,7 +161,7 @@ class Config:
         Returns:
             str: Encoding
         """
-        encoding = self._extract_config_content().encoding
+        encoding = self.config.encoding
         return encoding
 
     def get_timeout(self) -> int:
@@ -148,7 +171,7 @@ class Config:
         Returns:
             int: Number of seconds to wait for response
         """
-        timeout = self._extract_config_content().timeout
+        timeout = self.config.timeout
         return timeout
 
     def get_verify_certificate(self) -> bool:
@@ -158,7 +181,7 @@ class Config:
         Returns:
             bool: Whether to verify certificate or not
         """
-        verify_certificate = self._extract_config_content().should_verify_certificate
+        verify_certificate = self.config.should_verify_certificate
         return verify_certificate
 
     def get_headless_mode(self) -> bool:
@@ -168,7 +191,7 @@ class Config:
         Returns:
             bool: Whether to use headless mode or not
         """
-        headless_mode = self._extract_config_content().headless_mode
+        headless_mode = self.config.headless_mode
         return headless_mode
 
 
@@ -183,12 +206,12 @@ def make_request(url: str, config: Config) -> requests.models.Response:
     Returns:
         requests.models.Response: A response from a request
     """
-    if not isinstance(url, str) or not isinstance(config, Config):
-        raise TypeError
+    if not isinstance(url, str):
+        raise TypeError('Inappropriate type of url')
     response = requests.get(url,
-                            headers=Config.get_headers(),
-                            timeout=Config.get_timeout(),
-                            verify=Config.get_verify_certificate())
+                            headers=config.get_headers(),
+                            timeout=config.get_timeout(),
+                            verify=config.get_verify_certificate())
     return response
 
 
@@ -207,6 +230,8 @@ class Crawler:
         Args:
             config (Config): Configuration
         """
+        self.config = config
+        self.urls = []
 
     def _extract_url(self, article_bs: BeautifulSoup) -> str:
         """
@@ -218,11 +243,38 @@ class Crawler:
         Returns:
             str: Url from HTML
         """
+        articles = article_bs.find_all('a', {'class': 'card__url card-half__url'})
+        articles.extend(article_bs.find_all('a', {'class': 'card__url card-double__url'}))
+        articles.extend(article_bs.find_all('a', {'class': 'card__url card-single'}))
+        urls = ['https://mel.fm' + article['href'] for article in articles]
+        for url in urls:
+            if not url or not isinstance(url, str):
+                return 'error'
+            if url not in self.urls:
+                if isinstance(url, str):
+                    return url
+            if url in self.urls:
+                continue
+        return ""
 
     def find_articles(self) -> None:
         """
         Find articles.
         """
+        prepare_environment(ASSETS_PATH)
+        for url in self.get_search_urls():
+            try:
+                response = make_request(url, self.config)
+                if response.ok:
+                    while True:
+                        url = self._extract_url(BeautifulSoup(response.text, 'lxml'))
+                        if url in ("", "error"):
+                            break
+                        self.urls.append(url)
+                if response.status_code != 200:
+                    continue
+            except ValueError:
+                break
 
     def get_search_urls(self) -> list:
         """
@@ -231,6 +283,8 @@ class Crawler:
         Returns:
             list: seed_urls param
         """
+        seed_urls = self.config.get_seed_urls()
+        return seed_urls
 
 
 # 10
@@ -251,6 +305,10 @@ class HTMLParser:
             article_id (int): Article id
             config (Config): Configuration
         """
+        self.full_url = full_url
+        self.article_id = article_id
+        self.config = config
+        self.article = Article(full_url, article_id)
 
     def _fill_article_with_text(self, article_soup: BeautifulSoup) -> None:
         """
@@ -259,6 +317,20 @@ class HTMLParser:
         Args:
             article_soup (bs4.BeautifulSoup): BeautifulSoup instance
         """
+        # try:
+        article_text = ''
+        raw_text = article_soup.find('div',
+                                     {'class': 'b-pb-publication-body '
+                                                     'b-pb-publication-body_pablo'}).find_all('p')
+        raw_text.extend(article_soup.find('div',
+                                     {'class': 'b-pb-publication-body '
+                                                     'b-pb-publication-body_pablo'}).find_all('ol'))
+        raw_text.extend(article_soup.find('div',
+                                     {'class': 'b-pb-publication-body '
+                                                    'b-pb-publication-body_pablo'}).find_all('ul'))
+        for part in raw_text:
+            article_text += " ".join(part.find_all(string=True)) + '\n'
+        self.article.text = article_text
 
     def _fill_article_with_meta_information(self, article_soup: BeautifulSoup) -> None:
         """
@@ -286,6 +358,11 @@ class HTMLParser:
         Returns:
             Union[Article, bool, list]: Article instance
         """
+        response = make_request(url=self.full_url, config=self.config)
+        if response.ok:
+            article_bs = BeautifulSoup(response.text, 'lxml')
+            self._fill_article_with_text(article_bs)
+        return self.article
 
 
 def prepare_environment(base_path: Union[pathlib.Path, str]) -> None:
@@ -298,14 +375,14 @@ def prepare_environment(base_path: Union[pathlib.Path, str]) -> None:
     try:
         base_path.mkdir(exist_ok=False)
     except FileExistsError:
-        if os.listdir(base_path):
-            base_path.rmdir()
+        if base_path.stat().st_size != 0:
+            shutil.rmtree(base_path)
             base_path.mkdir()
         else:
             pass
     except AttributeError:
         if not isinstance(base_path, str):
-            raise TypeError
+            raise TypeError from AttributeError('Inappropriate type of base_path')
         new_path = pathlib.Path(base_path)
         new_path.mkdir()
 
@@ -316,6 +393,9 @@ def main() -> None:
     """
     configuration = Config(path_to_config=CRAWLER_CONFIG_PATH)
     prepare_environment(ASSETS_PATH)
+    crawler = Crawler(config=configuration)
+    crawler.find_articles()
+    # parser = HTMLParser(full_url=full_url, article_id=i, config=configuration)
 
 
 if __name__ == "__main__":
