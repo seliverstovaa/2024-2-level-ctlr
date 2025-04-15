@@ -103,9 +103,8 @@ class Config:
         Ensure configuration parameters are not corrupt.
         """
         if (not isinstance(self._seed_urls, list)
-                or not all(isinstance(url, str) for url in self._seed_urls)):
-            raise TypeError('Inappropriate type of seed urls')
-        if not all(url.startswith("https://mel.fm") for url in self.config.seed_urls):
+                or not all(isinstance(url, str) for url in self._seed_urls)
+                or not all(url.startswith("https://mel.fm") for url in self.config.seed_urls)):
             raise IncorrectSeedURLError('Seed URL does not match standard pattern "https?://(www.)?"')
         if (not isinstance(self._num_articles, int) or isinstance(self._num_articles, bool)
                 or self._num_articles < 0):
