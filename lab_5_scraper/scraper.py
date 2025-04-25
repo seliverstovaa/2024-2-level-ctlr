@@ -316,7 +316,6 @@ class HTMLParser:
         Args:
             article_soup (bs4.BeautifulSoup): BeautifulSoup instance
         """
-        article_text = ''
         raw_text = article_soup.find('div',
                                      {'class': 'b-pb-publication-body '
                                                      'b-pb-publication-body_pablo'}).find_all('p')
