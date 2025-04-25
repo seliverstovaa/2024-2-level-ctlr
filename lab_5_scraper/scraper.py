@@ -338,15 +338,13 @@ class HTMLParser:
         article = self.article
         title = article_soup.find('h1', {'class': "b-pb-article__title b-pb-article__title_with-cover"}).text
         article.title = title
-        try:
-            date = article_soup.find('div', {'class': 'publication-header__publication-date'}).text
-        except AttributeError:
-            date = article_soup.find('div', {'class': 'b-pb-article__counter publication-commercial-header__time-counter'}).text
-        article.date = date
+        date = article_soup.find('time', {'itemprop': 'datePublished'})['datetime']
+        # except AttributeError:
+        #     date = article_soup.find('div', {'class': 'b-pb-article__counter publication-commercial-header__time-counter'}).text
+        article.date = self.unify_date_format(date)
         try:
             author = article_soup.find('a', {'class': 'author-bottom__link'}).text
             if "Мел" or "редакц" in author:
-
                 author = "NOT FOUND"
         except AttributeError:
             author = "NOT FOUND"
@@ -364,6 +362,10 @@ class HTMLParser:
         Returns:
             datetime.datetime: Datetime object
         """
+        if not isinstance(date_str, str):
+            raise TypeError("Input data must be a str format")
+        date = datetime.datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S+00:00')
+        return date
 
     def parse(self) -> Union[Article, bool, list]:
         """
