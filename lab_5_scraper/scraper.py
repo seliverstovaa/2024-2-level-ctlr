@@ -104,12 +104,15 @@ class Config:
         if (not isinstance(self._seed_urls, list)
                 or not all(isinstance(url, str) for url in self._seed_urls)
                 or not all(url.startswith("https://mel.fm") for url in self.config.seed_urls)):
-            raise IncorrectSeedURLError('Seed URL does not match standard pattern "https?://(www.)?"')
+            raise (IncorrectSeedURLError
+                   ('Seed URL does not match standard pattern "https?://(www.)?"'))
         if (not isinstance(self._num_articles, int) or isinstance(self._num_articles, bool)
                 or self._num_articles < 0):
-            raise IncorrectNumberOfArticlesError('Total number of articles to parse is not integer or less than 0')
+            raise (IncorrectNumberOfArticlesError
+                   ('Total number of articles to parse is not integer or less than 0'))
         if self._num_articles > 150:
-            raise NumberOfArticlesOutOfRangeError('Total number of articles is out of range from 1 to 150')
+            raise (NumberOfArticlesOutOfRangeError
+                   ('Total number of articles is out of range from 1 to 150'))
         if not isinstance(self.config.headers, dict):
             raise IncorrectHeadersError('Headers are not in a form of dictionary')
         if not isinstance(self.config.encoding, str):
@@ -335,15 +338,16 @@ class HTMLParser:
             article_soup (bs4.BeautifulSoup): BeautifulSoup instance
         """
         article = self.article
-        title = article_soup.find('h1', {'class': "b-pb-article__title b-pb-article__title_with-cover"}).text
+        title = article_soup.find(
+            'h1', {'class': "b-pb-article__title b-pb-article__title_with-cover"}).text
         article.title = title
-        date = article_soup.find('time', {'itemprop': 'datePublished'})['datetime']
-        # except AttributeError:
-        #     date = article_soup.find('div', {'class': 'b-pb-article__counter publication-commercial-header__time-counter'}).text
+        date = article_soup.find('time', {'itemprop': 'datePublished'}).get('datetime')
+        if not isinstance(date, str):
+            raise ValueError("Expected str format")
         article.date = self.unify_date_format(date)
         try:
             author = article_soup.find('a', {'class': 'author-bottom__link'}).text
-            if "Мел" or "редакц" in author:
+            if "Мел" in author or "редакц" in author:
                 author = "NOT FOUND"
         except AttributeError:
             author = "NOT FOUND"
@@ -411,7 +415,6 @@ def main() -> None:
     prepare_environment(ASSETS_PATH)
     crawler = Crawler(config=configuration)
     crawler.find_articles()
-    parser = HTMLParser(full_url='https://mel.fm/vopros--otvet/otvechayet-yurist/7619052-mozhet-li-uchitel-zadavat-domashku-ne-v-kontse-uroka-a-pozzhe-na-den-ili-dva', article_id=2, config=configuration)
 
 if __name__ == "__main__":
     main()
