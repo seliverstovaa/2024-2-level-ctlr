@@ -352,7 +352,7 @@ class HTMLParser:
         except AttributeError:
             author = "NOT FOUND"
         article.author = author.split(', ')
-        topics = article_soup.find('a', {'class': 'main-tag__link'}).text
+        topics = article_soup.find('div', {'class': 'main-tag__text'}).text
         article.topics = topics.split(', ')
 
     def unify_date_format(self, date_str: str) -> datetime.datetime:
