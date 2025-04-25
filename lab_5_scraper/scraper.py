@@ -102,8 +102,9 @@ class Config:
         Ensure configuration parameters are not corrupt.
         """
         if (not isinstance(self._seed_urls, list)
-                or not all(isinstance(url, str) for url in self._seed_urls)
-                or not all(url.startswith("https://mel.fm") for url in self.config.seed_urls)):
+                or not all(isinstance(url_topic, str) for url_topic in self._seed_urls)
+                or not all(url_topic.startswith("https://mel.fm")
+                           for url_topic in self.config.seed_urls)):
             raise (IncorrectSeedURLError
                    ('Seed URL does not match standard pattern "https?://(www.)?"'))
         if (not isinstance(self._num_articles, int) or isinstance(self._num_articles, bool)
@@ -212,6 +213,7 @@ def make_request(url: str, config: Config) -> requests.models.Response:
                             headers=config.get_headers(),
                             timeout=config.get_timeout(),
                             verify=config.get_verify_certificate())
+    requests.encoding = config.get_encoding()
     return response
 
 
@@ -262,18 +264,16 @@ class Crawler:
         Find articles.
         """
         for url in self.get_search_urls():
-            try:
-                response = make_request(url, self.config)
-                if response.ok:
-                    while True:
-                        url = self._extract_url(BeautifulSoup(response.text, 'lxml'))
-                        if url in ("", "error"):
-                            break
-                        self.urls.append(url)
-                if response.status_code != 200:
-                    continue
-            except ValueError:
-                break
+            response = make_request(url, self.config)
+            if response.ok:
+                if len(self.urls) >= 100:
+                    break
+                while True:
+                    url = self._extract_url(BeautifulSoup(response.text, 'lxml'))
+                    if url in ("", "error"):
+                        break
+                    self.urls.append(url)
+            continue
 
     def get_search_urls(self) -> list:
         """
@@ -326,9 +326,7 @@ class HTMLParser:
         raw_text.extend(article_soup.find('div',
                                      {'class': 'b-pb-publication-body '
                                                     'b-pb-publication-body_pablo'}).find_all('ul'))
-        for part in raw_text:
-            article_text += " ".join(part.find_all(string=True)) + '\n'
-        self.article.text = article_text
+        self.article.text = '\n'.join(" ".join(part.find_all(string=True)) for part in raw_text)
 
     def _fill_article_with_meta_information(self, article_soup: BeautifulSoup) -> None:
         """
@@ -352,7 +350,10 @@ class HTMLParser:
         except AttributeError:
             author = "NOT FOUND"
         article.author = author.split(', ')
-        topics = article_soup.find('div', {'class': 'main-tag__text'}).text
+        try:
+            topics = article_soup.find('div', {'class': 'main-tag__text'}).text
+        except AttributeError:
+            topics = ''
         article.topics = topics.split(', ')
 
     def unify_date_format(self, date_str: str) -> datetime.datetime:
@@ -392,19 +393,11 @@ def prepare_environment(base_path: Union[pathlib.Path, str]) -> None:
     Args:
         base_path (Union[pathlib.Path, str]): Path where articles stores
     """
-    try:
-        base_path.mkdir(exist_ok=False)
-    except FileExistsError:
-        if base_path.stat().st_size != 0:
-            shutil.rmtree(base_path)
-            base_path.mkdir()
-        else:
-            pass
-    except AttributeError:
-        if not isinstance(base_path, str):
-            raise TypeError from AttributeError('Inappropriate type of base_path')
-        new_path = pathlib.Path(base_path)
-        new_path.mkdir()
+    if not isinstance(base_path, str):
+        base_path = pathlib.Path(base_path)
+    if base_path.exists():
+        shutil.rmtree(base_path)
+    base_path.mkdir()
 
 
 def main() -> None:
