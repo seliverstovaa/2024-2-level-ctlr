@@ -5,6 +5,7 @@ Crawler implementation.
 # pylint: disable=too-many-arguments, too-many-instance-attributes, unused-import, undefined-variable, unused-argument
 import datetime
 import json
+import random
 import shutil
 
 import pathlib
@@ -76,7 +77,7 @@ class Config:
             raise TypeError('Inappropriate type of path_to_config')
         self.path_to_config = path_to_config
         self.config = self._extract_config_content()
-        self._seed_urls = self.get_seed_urls()
+        self._seed_urls = self.config.seed_urls
         self._num_articles = self.get_num_articles()
         self._headers = self.get_headers()
         self._encoding = self.get_encoding()
@@ -95,8 +96,7 @@ class Config:
             config_file = json.load(config_file)
         if not isinstance(config_file, dict):
             raise TypeError('Inappropriate type of config_file')
-        config = ConfigDTO(**config_file)
-        return config
+        return ConfigDTO(**config_file)
 
     def _validate_config_content(self) -> None:
         """
@@ -130,8 +130,7 @@ class Config:
         Returns:
             list[str]: Seed urls
         """
-        seed_urls = self.config.seed_urls
-        return seed_urls
+        return self._seed_urls
 
     def get_num_articles(self) -> int:
         """
@@ -315,7 +314,6 @@ class HTMLParser:
         Args:
             article_soup (bs4.BeautifulSoup): BeautifulSoup instance
         """
-        # try:
         article_text = ''
         raw_text = article_soup.find('div',
                                      {'class': 'b-pb-publication-body '
@@ -337,6 +335,24 @@ class HTMLParser:
         Args:
             article_soup (bs4.BeautifulSoup): BeautifulSoup instance
         """
+        article = self.article
+        title = article_soup.find('h1', {'class': "b-pb-article__title b-pb-article__title_with-cover"}).text
+        article.title = title
+        try:
+            date = article_soup.find('div', {'class': 'publication-header__publication-date'}).text
+        except AttributeError:
+            date = article_soup.find('div', {'class': 'b-pb-article__counter publication-commercial-header__time-counter'}).text
+        article.date = date
+        try:
+            author = article_soup.find('a', {'class': 'author-bottom__link'}).text
+            if "Мел" or "редакц" in author:
+
+                author = "NOT FOUND"
+        except AttributeError:
+            author = "NOT FOUND"
+        article.author = author.split(', ')
+        topics = article_soup.find('a', {'class': 'main-tag__link'}).text
+        article.topics = topics.split(', ')
 
     def unify_date_format(self, date_str: str) -> datetime.datetime:
         """
@@ -360,6 +376,7 @@ class HTMLParser:
         if response.ok:
             article_bs = BeautifulSoup(response.text, 'lxml')
             self._fill_article_with_text(article_bs)
+            self._fill_article_with_meta_information(article_bs)
         return self.article
 
 
@@ -393,8 +410,7 @@ def main() -> None:
     prepare_environment(ASSETS_PATH)
     crawler = Crawler(config=configuration)
     crawler.find_articles()
-    # parser = HTMLParser(full_url=full_url, article_id=i, config=configuration)
-
+    parser = HTMLParser(full_url='https://mel.fm/vopros--otvet/otvechayet-yurist/7619052-mozhet-li-uchitel-zadavat-domashku-ne-v-kontse-uroka-a-pozzhe-na-den-ili-dva', article_id=2, config=configuration)
 
 if __name__ == "__main__":
     main()
