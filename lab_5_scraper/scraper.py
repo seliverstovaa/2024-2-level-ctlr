@@ -265,14 +265,15 @@ class Crawler:
         """
         for url in self.get_search_urls():
             response = make_request(url, self.config)
+            if len(self.urls) >= self.config.get_num_articles():
+                break
             if response.ok:
-                if len(self.urls) >= self.config.get_num_articles():
-                    break
-                while True:
-                    url = self._extract_url(BeautifulSoup(response.text, 'lxml'))
-                    if url in ("", "error"):
+                for _ in range(10):
+                    article_url = self._extract_url(BeautifulSoup(response.text, 'lxml'))
+                    if article_url == '' or article_url == 'error':
                         break
-                    self.urls.append(url)
+                    if article_url not in self.urls:
+                        self.urls.append(article_url)
             continue
 
     def get_search_urls(self) -> list:
