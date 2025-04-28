@@ -13,9 +13,9 @@ import requests
 from bs4 import BeautifulSoup
 
 from core_utils.article.article import Article
+from core_utils.article.io import to_meta, to_raw
 from core_utils.config_dto import ConfigDTO
 from core_utils.constants import ASSETS_PATH, CRAWLER_CONFIG_PATH
-from core_utils.article.io import to_raw, to_meta
 
 
 class IncorrectSeedURLError(Exception):
@@ -407,7 +407,7 @@ def main() -> None:
     prepare_environment(ASSETS_PATH)
     crawler = Crawler(config=configuration)
     crawler.find_articles()
-    for url, ind in enumerate(crawler.urls):
+    for ind, url in enumerate(crawler.urls):
         parser = HTMLParser(url, ind, configuration)
         article = parser.parse()
         if isinstance(article, Article):
