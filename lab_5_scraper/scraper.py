@@ -270,7 +270,7 @@ class Crawler:
             if response.ok:
                 for _ in range(10):
                     article_url = self._extract_url(BeautifulSoup(response.text, 'lxml'))
-                    if article_url == '' or article_url == 'error':
+                    if article_url in ('', 'error'):
                         break
                     if article_url in self.urls:
                         break
