@@ -272,8 +272,9 @@ class Crawler:
                     article_url = self._extract_url(BeautifulSoup(response.text, 'lxml'))
                     if article_url == '' or article_url == 'error':
                         break
-                    if article_url not in self.urls:
-                        self.urls.append(article_url)
+                    if article_url in self.urls:
+                        break
+                    self.urls.append(article_url)
             continue
 
     def get_search_urls(self) -> list:
