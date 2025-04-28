@@ -6,7 +6,6 @@ Crawler implementation.
 import datetime
 import json
 import pathlib
-import random
 import shutil
 from typing import Pattern, Union
 
@@ -16,6 +15,7 @@ from bs4 import BeautifulSoup
 from core_utils.article.article import Article
 from core_utils.config_dto import ConfigDTO
 from core_utils.constants import ASSETS_PATH, CRAWLER_CONFIG_PATH
+from core_utils.article.io import to_raw, to_meta
 
 
 class IncorrectSeedURLError(Exception):
@@ -266,7 +266,7 @@ class Crawler:
         for url in self.get_search_urls():
             response = make_request(url, self.config)
             if response.ok:
-                if len(self.urls) >= 100:
+                if len(self.urls) >= self.config.get_num_articles():
                     break
                 while True:
                     url = self._extract_url(BeautifulSoup(response.text, 'lxml'))
@@ -407,6 +407,12 @@ def main() -> None:
     prepare_environment(ASSETS_PATH)
     crawler = Crawler(config=configuration)
     crawler.find_articles()
+    for url, ind in enumerate(crawler.urls):
+        parser = HTMLParser(url, ind, configuration)
+        article = parser.parse()
+        if isinstance(article, Article):
+            to_raw(article)
+            to_meta(article)
 
 if __name__ == "__main__":
     main()
