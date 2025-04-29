@@ -6,7 +6,9 @@ Crawler implementation.
 import datetime
 import json
 import pathlib
+import random
 import shutil
+import time
 from typing import Pattern, Union
 
 import requests
@@ -102,9 +104,9 @@ class Config:
         Ensure configuration parameters are not corrupt.
         """
         if (not isinstance(self._seed_urls, list)
-                or not all(isinstance(url_topic, str) for url_topic in self._seed_urls)
-                or not all(url_topic.startswith("https://mel.fm")
-                           for url_topic in self.config.seed_urls)):
+                or not all(isinstance(url_topic, str)
+                           and url_topic.startswith("https://mel.fm")
+                           for url_topic in self._seed_urls)):
             raise (IncorrectSeedURLError
                    ('Seed URL does not match standard pattern "https?://(www.)?"'))
         if (not isinstance(self._num_articles, int) or isinstance(self._num_articles, bool)
@@ -142,8 +144,7 @@ class Config:
         Returns:
             int: Total number of articles to scrape
         """
-        num_articles = self.config.total_articles
-        return num_articles
+        return self.config.total_articles
 
     def get_headers(self) -> dict[str, str]:
         """
@@ -152,8 +153,7 @@ class Config:
         Returns:
             dict[str, str]: Headers
         """
-        headers = self.config.headers
-        return headers
+        return self.config.headers
 
     def get_encoding(self) -> str:
         """
@@ -162,8 +162,7 @@ class Config:
         Returns:
             str: Encoding
         """
-        encoding = self.config.encoding
-        return encoding
+        return self.config.encoding
 
     def get_timeout(self) -> int:
         """
@@ -172,8 +171,7 @@ class Config:
         Returns:
             int: Number of seconds to wait for response
         """
-        timeout = self.config.timeout
-        return timeout
+        return self.config.timeout
 
     def get_verify_certificate(self) -> bool:
         """
@@ -182,8 +180,7 @@ class Config:
         Returns:
             bool: Whether to verify certificate or not
         """
-        verify_certificate = self.config.should_verify_certificate
-        return verify_certificate
+        return self.config.should_verify_certificate
 
     def get_headless_mode(self) -> bool:
         """
@@ -192,8 +189,7 @@ class Config:
         Returns:
             bool: Whether to use headless mode or not
         """
-        headless_mode = self.config.headless_mode
-        return headless_mode
+        return self.config.headless_mode
 
 
 def make_request(url: str, config: Config) -> requests.models.Response:
@@ -209,6 +205,7 @@ def make_request(url: str, config: Config) -> requests.models.Response:
     """
     if not isinstance(url, str):
         raise TypeError('Inappropriate type of url')
+    time.sleep(random.randint(1, 10))
     response = requests.get(url,
                             headers=config.get_headers(),
                             timeout=config.get_timeout(),
@@ -369,8 +366,7 @@ class HTMLParser:
         """
         if not isinstance(date_str, str):
             raise TypeError("Input data must be a str format")
-        date = datetime.datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S+00:00')
-        return date
+        return datetime.datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S+00:00')
 
     def parse(self) -> Union[Article, bool, list]:
         """
@@ -394,8 +390,7 @@ def prepare_environment(base_path: Union[pathlib.Path, str]) -> None:
     Args:
         base_path (Union[pathlib.Path, str]): Path where articles stores
     """
-    if not isinstance(base_path, str):
-        base_path = pathlib.Path(base_path)
+    base_path = pathlib.Path(base_path)
     if base_path.exists():
         shutil.rmtree(base_path)
     base_path.mkdir()
