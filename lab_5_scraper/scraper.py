@@ -261,9 +261,9 @@ class Crawler:
         Find articles.
         """
         for url in self.get_search_urls():
-            response = make_request(url, self.config)
             if len(self.urls) >= self.config.get_num_articles():
                 break
+            response = make_request(url, self.config)
             if response.ok:
                 for _ in range(10):
                     article_url = self._extract_url(BeautifulSoup(response.text, 'lxml'))
@@ -281,8 +281,7 @@ class Crawler:
         Returns:
             list: seed_urls param
         """
-        seed_urls = self.config.get_seed_urls()
-        return seed_urls
+        return self.config.get_seed_urls()
 
 
 # 10
@@ -410,6 +409,7 @@ def main() -> None:
         if isinstance(article, Article):
             to_raw(article)
             to_meta(article)
+
 
 if __name__ == "__main__":
     main()
