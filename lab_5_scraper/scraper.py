@@ -424,7 +424,7 @@ def prepare_environment(base_path: Union[pathlib.Path, str]) -> None:
     base_path = pathlib.Path(base_path)
     if base_path.exists():
         shutil.rmtree(base_path)
-    base_path.mkdir()
+    base_path.mkdir(parents=True)
 
 
 def main() -> None:
