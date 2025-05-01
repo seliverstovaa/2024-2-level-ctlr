@@ -205,7 +205,7 @@ def make_request(url: str, config: Config) -> requests.models.Response:
     """
     if not isinstance(url, str):
         raise TypeError('Inappropriate type of url')
-    time.sleep(random.randint(1, 10))
+    # time.sleep(random.randint(1, 5))
     response = requests.get(url,
                             headers=config.get_headers(),
                             timeout=config.get_timeout(),
@@ -247,13 +247,8 @@ class Crawler:
         articles.extend(article_bs.find_all('a', {'class': 'card__url card-single'}))
         urls = ['https://mel.fm' + article['href'] for article in articles]
         for url in urls:
-            if not url or not isinstance(url, str):
-                return 'error'
-            if url not in self.urls:
-                if isinstance(url, str):
-                    return url
-            if url in self.urls:
-                continue
+            if isinstance(url, str):
+                return url
         return ""
 
     def find_articles(self) -> None:
@@ -261,17 +256,12 @@ class Crawler:
         Find articles.
         """
         for url in self.get_search_urls():
-            if len(self.urls) >= self.config.get_num_articles():
-                break
             response = make_request(url, self.config)
             if response.ok:
-                for _ in range(10):
+                while len(self.urls) <= self.config.get_num_articles():
                     article_url = self._extract_url(BeautifulSoup(response.text, 'lxml'))
-                    if article_url in ('', 'error'):
-                        break
-                    if article_url in self.urls:
-                        break
-                    self.urls.append(article_url)
+                    if not (article_url == '' and article_url in self.urls):
+                        self.urls.append(article_url)
             continue
 
     def get_search_urls(self) -> list:
@@ -282,6 +272,50 @@ class Crawler:
             list: seed_urls param
         """
         return self.config.get_seed_urls()
+
+
+class CrawlerRecursive(Crawler):
+    """
+    CrawlerRecursive implementation.
+    """
+
+    def __init__(self, config: Config) -> None:
+        """
+        Initialize an instance of the Crawler class.
+
+        Args:
+            config (Config): Configuration
+        """
+        super().__init__(config)
+        self.config = config
+        self.start_url = 'https://mel.fm'
+        self.path = ASSETS_PATH.parent / 'passed_urls.json'
+
+        if self.path.exists():
+            with open(self.path, 'r', encoding='utf-8') as file:
+                self.urls = json.load(file)
+        else:
+            self.urls = []
+
+    def find_articles(self) -> None:
+        """
+        Find articles.
+        """
+        response = make_request(self.start_url, self.config)
+        if response.ok:
+            site_bs = BeautifulSoup(response.text)
+            sections = site_bs.find_all('a', {'class': 'section-menu__link'})
+            topics = []
+            for section in sections:
+                topics.extend('https://mel.fm' + section.find_all('a')['href'])
+            while len(self.urls) < self.config.get_num_articles():
+                for topic in topics:
+                    topic_bs = BeautifulSoup(
+                        make_request('https://mel.fm' + topic, self.config).text)
+                    self.urls.append(self._extract_url(topic_bs))
+                    with open(self.path, 'w', encoding='utf-8') as file:
+                        json.dump(self.urls, file)
+        self.find_articles()
 
 
 # 10
@@ -363,8 +397,6 @@ class HTMLParser:
         Returns:
             datetime.datetime: Datetime object
         """
-        if not isinstance(date_str, str):
-            raise TypeError("Input data must be a str format")
         return datetime.datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S+00:00')
 
     def parse(self) -> Union[Article, bool, list]:
