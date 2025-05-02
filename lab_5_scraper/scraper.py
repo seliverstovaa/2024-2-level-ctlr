@@ -438,7 +438,6 @@ def main() -> None:
     for article_id, url in enumerate(crawler.urls):
         parser = HTMLParser(url, article_id + 1, configuration)
         article = parser.parse()
-        article_id += 1
         if isinstance(article, Article):
             to_raw(article)
             to_meta(article)
