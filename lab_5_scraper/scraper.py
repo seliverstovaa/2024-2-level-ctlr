@@ -435,9 +435,8 @@ def main() -> None:
     prepare_environment(ASSETS_PATH)
     crawler = Crawler(config=configuration)
     crawler.find_articles()
-    article_id = 1
-    for ind, url in enumerate(crawler.urls):
-        parser = HTMLParser(url, article_id, configuration)
+    for article_id, url in enumerate(crawler.urls):
+        parser = HTMLParser(url, article_id + 1, configuration)
         article = parser.parse()
         article_id += 1
         if isinstance(article, Article):
