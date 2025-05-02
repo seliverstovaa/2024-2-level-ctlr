@@ -437,7 +437,7 @@ def main() -> None:
     crawler.find_articles()
     article_id = 1
     for ind, url in enumerate(crawler.urls):
-        parser = HTMLParser(url, ind, configuration)
+        parser = HTMLParser(url, article_id, configuration)
         article = parser.parse()
         article_id += 1
         if isinstance(article, Article):
