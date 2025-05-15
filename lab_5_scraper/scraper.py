@@ -259,7 +259,7 @@ class Crawler:
             for div in all_divs:
                 if len(self.urls) >= self.config.get_num_articles():
                     break
-                article_url = self._extract_url(div)
+                article_url = self._extract_url(div.find('a'))
                 if article_url not in self.urls:
                     self.urls.append(article_url)
 
