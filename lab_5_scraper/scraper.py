@@ -205,7 +205,7 @@ def make_request(url: str, config: Config) -> requests.models.Response:
     """
     if not isinstance(url, str):
         raise TypeError('Inappropriate type of url')
-    # time.sleep(random.randint(1, 10))
+    time.sleep(random.randint(1, 5))
     response = requests.get(url,
                             headers=config.get_headers(),
                             timeout=config.get_timeout(),
@@ -242,14 +242,7 @@ class Crawler:
         Returns:
             str: Url from HTML
         """
-        articles = article_bs.find_all('a', {'class': 'card__url card-half__url'})
-        articles.extend(article_bs.find_all('a', {'class': 'card__url card-double__url'}))
-        articles.extend(article_bs.find_all('a', {'class': 'card__url card-single'}))
-        urls = ['https://mel.fm' + article['href'] for article in articles]
-        for url in urls:
-            if isinstance(url, str):
-                return url
-        return ""
+        return 'https://mel.fm' + article_bs['href']
 
     def find_articles(self) -> None:
         """
@@ -257,12 +250,18 @@ class Crawler:
         """
         for url in self.get_search_urls():
             response = make_request(url, self.config)
-            if response.ok:
-                while len(self.urls) <= self.config.get_num_articles():
-                    article_url = self._extract_url(BeautifulSoup(response.text, 'lxml'))
-                    if not (article_url == '' and article_url in self.urls):
-                        self.urls.append(article_url)
-            continue
+            if response.ok is False:
+                continue
+            page_bs = BeautifulSoup(response.text, 'lxml')
+            all_divs = page_bs.find_all('div', {'class': 'card card-half'})
+            all_divs.extend(page_bs.find_all('div', {'class': 'card card-single'}))
+            all_divs.extend(page_bs.find_all('div', {'class': 'card card-double'}))
+            for div in all_divs:
+                if len(self.urls) >= self.config.get_num_articles():
+                    break
+                article_url = self._extract_url(div)
+                if article_url not in self.urls:
+                    self.urls.append(article_url)
 
     def get_search_urls(self) -> list:
         """
