@@ -205,7 +205,7 @@ def make_request(url: str, config: Config) -> requests.models.Response:
     """
     if not isinstance(url, str):
         raise TypeError('Inappropriate type of url')
-    time.sleep(random.randint(1, 5))
+    time.sleep(random.randint(1, 2))
     response = requests.get(url,
                             headers=config.get_headers(),
                             timeout=config.get_timeout(),
