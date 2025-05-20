@@ -302,7 +302,7 @@ class CrawlerRecursive(Crawler):
         """
         response = make_request(self.start_url, self.config)
         if response.ok:
-            site_bs = BeautifulSoup(response.text)
+            site_bs = BeautifulSoup(response.text, 'lxml')
             sections = site_bs.find_all('a', {'class': 'section-menu__link'})
             topics = []
             for section in sections:
@@ -310,7 +310,7 @@ class CrawlerRecursive(Crawler):
             while len(self.urls) < self.config.get_num_articles():
                 for topic in topics:
                     topic_bs = BeautifulSoup(
-                        make_request('https://mel.fm' + topic, self.config).text)
+                        make_request('https://mel.fm' + topic, self.config).text, 'lxml')
                     self.urls.append(self._extract_url(topic_bs))
                     with open(self.path, 'w', encoding='utf-8') as file:
                         json.dump(self.urls, file)
@@ -427,6 +427,22 @@ def prepare_environment(base_path: Union[pathlib.Path, str]) -> None:
 
 
 def main() -> None:
+    """
+    Entrypoint for scrapper module.
+    """
+    configuration = Config(path_to_config=CRAWLER_CONFIG_PATH)
+    prepare_environment(ASSETS_PATH)
+    crawler = Crawler(config=configuration)
+    crawler.find_articles()
+    for article_id, url in enumerate(crawler.urls):
+        parser = HTMLParser(url, article_id + 1, configuration)
+        article = parser.parse()
+        if isinstance(article, Article):
+            to_raw(article)
+            to_meta(article)
+
+
+def main2() -> None:
     """
     Entrypoint for scrapper module.
     """
