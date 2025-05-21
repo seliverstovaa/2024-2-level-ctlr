@@ -18,6 +18,7 @@ try:
     import spacy
     import spacy_udpipe
     from spacy_conll import ConllParser  # type: ignore[import-not-found]
+    # type: ignore[import-untyped]
 
 except ImportError:
     print("No libraries installed. Failed to import.")
