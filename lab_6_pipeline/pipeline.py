@@ -71,10 +71,10 @@ class CorpusManager:
         raw_files = [raw.name for raw in self.path.iterdir() if raw.name.endswith('_raw.txt')]
         metas = [meta.name for meta in self.path.iterdir() if meta.name.endswith('_meta.json')]
         for file_id in range(1, len(raw_files) + 1):
-            if f'{str(file_id)}_raw.txt' not in raw_files:
+            if not any(f'{str(file_id)}_raw.txt' == raw for raw  in raw_files):
                 raise InconsistentDatasetError('Raw IDs contain slips')
         for meta_id in range(1, len(metas) + 1):
-            if f'{str(meta_id)}_meta.json' not in metas:
+            if not any(f'{str(meta_id)}_meta.json' == meta for meta in metas):
                 raise InconsistentDatasetError('Meta IDs contain slips')
         if len(raw_files) != len(metas):
             raise InconsistentDatasetError('Number of meta and raw files is not equal')
@@ -118,7 +118,7 @@ class TextProcessingPipeline(PipelineProtocol):
             corpus_manager (CorpusManager): CorpusManager instance
             analyzer (LibraryWrapper | None): Analyzer instance
         """
-        self.corpus_manager = corpus_manager
+        self._corpus = corpus_manager
         self._analyzer = analyzer
 
     def run(self) -> None:
@@ -126,11 +126,11 @@ class TextProcessingPipeline(PipelineProtocol):
         Perform basic preprocessing and write processed text to files.
         """
         conllu = self._analyzer.analyze([article.text for article
-                                         in list(self.corpus_manager.get_articles().values())])
-        for article in list(self.corpus_manager.get_articles().values()):
+                                         in list(self._corpus.get_articles().values())])
+        for article in list(self._corpus.get_articles().values()):
             article.get_cleaned_text()
             io.to_cleaned(article)
-            article.set_conllu_info(conllu[list(self.corpus_manager.get_articles().
+            article.set_conllu_info(conllu[list(self._corpus.get_articles().
                                                 values()).index(article)])
             self._analyzer.to_conllu(article)
 
@@ -176,11 +176,7 @@ class UDPipeAnalyzer(LibraryWrapper):
         Returns:
             list[UDPipeDocument | str]: List of documents
         """
-        analyzed: list[UDPipeDocument | str] = []
-        for text in texts:
-            analized_text = self._analyzer(text)._.conll_str
-            analyzed.append(f'{analized_text}\n')
-        return analyzed
+        return [f'{self._analyzer(text)._.conll_str}\n' for text in texts]
 
     def to_conllu(self, article: Article) -> None:
         """
